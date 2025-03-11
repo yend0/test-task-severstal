@@ -1,0 +1,16 @@
+# files
+.gitignore
+.pre-commit-config.yaml
+Makefile
+LICENSE
+.envrc
+
+# directories
+__pycache__/
+.vscode/
+.venv/
+.git/
+.idea/
+.ruff_cache/
+.gihub/
+!env/

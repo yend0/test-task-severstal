@@ -1,0 +1,26 @@
+FROM python:3.12-alpine AS builder
+
+RUN apk add --no-cache --virtual build-deps gcc musl-dev python3-dev \
+    && apk add postgresql-dev \
+    && pip install --no-cache-dir alembic asyncpg pydantic[email] pydantic-settings jinja2 \
+    && apk del build-deps
+
+FROM python:3.12-alpine
+
+ENV DOCKERIZE_VERSION=v0.9.2
+RUN apk add --no-cache wget \
+    && wget -O /tmp/dockerize.tar.gz https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-alpine-linux-amd64-${DOCKERIZE_VERSION}.tar.gz \
+    && tar -C /usr/local/bin -xzvf /tmp/dockerize.tar.gz \
+    && rm -rf /tmp/dockerize.tar.gz
+
+RUN apk add --no-cache postgresql-dev libmagic
+
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin/alembic /usr/local/bin/alembic
+
+COPY alembic.ini /alembic.ini
+COPY migrations /migrations
+
+WORKDIR /
+ENTRYPOINT ["dockerize", "-template", "/alembic.ini:/alembic.ini", "alembic"]
+CMD ["upgrade", "head"]

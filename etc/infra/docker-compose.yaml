@@ -1,0 +1,68 @@
+volumes:
+  database-application: {}
+
+networks:
+  backend:
+    name: backend
+    driver: bridge
+
+services:
+  database:
+    container_name: warehouse-db
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    networks:
+      - backend
+    volumes:
+      - database-application:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+  application:
+    container_name: warehouse-app
+    image: warehouse-app:latest
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    networks:
+      - backend
+    environment:
+      API_VERSION: ${API_VERSION}
+      DATABASE_PORT: ${DATABASE_PORT}
+      DATABASE_DB: ${DATABASE_DB}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DATABASE_ADDRESS: ${DATABASE_ADDRESS}
+      HOST: ${HOST}
+      PORT: ${PORT}
+      LOG_LEVEL: ${LOG_LEVEL}
+      RELOAD: ${RELOAD}
+      FACTORY: ${FACTORY}
+  alembic-migrations:
+    container_name: alembic-migrations
+    image: alembic-migrations:latest
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - backend
+    volumes:
+      - ../migrations:/migrations
+      - ../../src/warehouse_app:/warehouse_app
+    environment:
+        DATABASE_PORT: ${DATABASE_PORT}
+        POSTGRES_DB: ${POSTGRES_DB}
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_ADDRESS: ${POSTGRES_ADDRESS}
