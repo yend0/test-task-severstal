@@ -1,0 +1,38 @@
+[project]
+name = "test-task-severstal"
+version = "0.1.0"
+authors = [
+    { name = "Vadim Remezov", email = "remezov@cs.vsu.ru" },
+]
+description = "Backend application for test task in Severstal."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncpg==0.30.*",
+    "fastapi==0.115.*",
+    "hatch==1.13.*",
+    "pydantic-settings==2.7.*",
+    "sqlalchemy==2.0.*",
+    "uvicorn==0.32.*",
+]
+
+[dependency-groups]
+dev = [
+    "alembic==1.13.*",
+    "pytest==8.3.*",
+    "pre-commit==4.0.*",
+    "mypy==1.15.*",
+]
+lint = [
+    "ruff==0.7.*",
+]
+
+[project.scripts]
+run_server = "warehouse_app.main:__name__"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/warehouse_app"]
