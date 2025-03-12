@@ -1,7 +1,7 @@
 line-length = 120
 target-version = "py312"
 
-select = [
+lint.select = [
   "E",   # pycodestyle errors
   "W",   # pycodestyle warnings
   "F",   # pyflakes
@@ -15,10 +15,10 @@ select = [
   "RUF", # ruff-specific
 ]
 
-ignore = [
+lint.ignore = [
   "E501",
   "D",    
 ]
 
-[isort]
+[lint.isort]
 known-first-party = ["app"]
