@@ -89,7 +89,7 @@ class RollReposity(RollAbstractReposity):
         if orm_instance:
             if orm_instance.removed_at:
                 return None
-            orm_instance.removed_at = datetime.datetime.now(datetime.UTC)
+            orm_instance.removed_at = datetime.datetime.now()
             self._session.add(orm_instance)
             await self._session.commit()
             return orm_instance
