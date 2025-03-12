@@ -1,13 +1,19 @@
-from typing import AsyncGenerator, Any, Protocol
-from warehouse_app.core.config import DatabaseConfig
+from collections.abc import AsyncGenerator
+from typing import Any, Protocol
+
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     async_sessionmaker,
     create_async_engine,
 )
+
+from warehouse_app.core.config import DatabaseConfig
+
+
 class DatabaseClient(Protocol):
     async def async_session_dependency(self) -> AsyncGenerator[Any, Any]:
         pass
+
 
 class DatabaseClientSQLAlchemy(DatabaseClient):
     def __init__(self, url: str, echo: bool = False) -> None:
@@ -23,6 +29,7 @@ class DatabaseClientSQLAlchemy(DatabaseClient):
         async with self._session_factory() as session:
             yield session
             await session.close()
+
 
 def database_sqlalchemy_factory(database_config: DatabaseConfig) -> DatabaseClient:
     return DatabaseClientSQLAlchemy(

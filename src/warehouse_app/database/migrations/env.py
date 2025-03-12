@@ -1,11 +1,10 @@
 import asyncio
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from alembic import context
 
 from warehouse_app.core.config import Config
 from warehouse_app.database import BaseORM
@@ -31,6 +30,7 @@ target_metadata = BaseORM.metadata
 # ... etc.
 
 config.set_main_option("sqlalchemy.url", Config.database.database_url_asyncpg)
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

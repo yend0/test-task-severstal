@@ -1,11 +1,10 @@
 import contextlib
-
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 
-from warehouse_app.core.config import Config
 from warehouse_app.api import api_router
+from warehouse_app.core.config import Config
 
 
 @contextlib.asynccontextmanager
@@ -20,7 +19,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         pass
-    
+
+
 def create_app() -> FastAPI:
     """
     Creates and configures the FastAPI application.

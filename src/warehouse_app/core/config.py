@@ -9,6 +9,7 @@ class URLPathsConfig:
     DOCS_URL: str = "/swagger-ui"
     REDOC_URL: str = "/redoc"
 
+
 class FastAPIConfig(BaseSettings):
     TITLE: str = "Warehouse rolls REST API"
     DESCRIPTION: str = "REST API for test task severstal"
@@ -36,10 +37,12 @@ class UvicornConfig(BaseSettings):
     RELOAD: bool = True
     FACTORY: bool = True
 
+
 class Config:
     """
     Main configuration class for the application.
     """
+
     fastapi: FastAPIConfig = FastAPIConfig()
     database: DatabaseConfig = DatabaseConfig()
     uvicorn: UvicornConfig = UvicornConfig()

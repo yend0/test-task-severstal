@@ -1,6 +1,6 @@
 __all__ = [
-    'BaseORM',
-    'RollORM',
+    "BaseORM",
+    "RollORM",
 ]
 
 from .models import BaseORM, RollORM
