@@ -4,9 +4,11 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 from sqlalchemy import and_, or_, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from warehouse_app.api.schemas import RollRequestCreate
+from warehouse_app.core.exc import DatabaseUnavailableError
 from warehouse_app.database.models import BaseORM, RollORM
 
 T = TypeVar("T", bound=BaseORM)
@@ -33,18 +35,26 @@ class SqlAlchemyRepository(AbstractRepository[T, S]):
         self._orm_model = orm_model
         self._pydantic_model = pydantic_model
 
+    async def _ensure_session(self) -> None:
+        if not self._session.is_active:
+            self._session = AsyncSession(self._session.bind)
+
     async def get_by_id(self, model_id: int) -> T | None:
-        stmt = select(self._orm_model).where(self._orm_model.id == model_id)
-        result = await self._session.execute(stmt)
-        orm_instance = result.scalar_one_or_none()
-        if orm_instance:
+        await self._ensure_session()
+        try:
+            stmt = select(self._orm_model).where(self._orm_model.id == model_id)
+            result = await self._session.execute(stmt)
+            orm_instance = result.scalar_one_or_none()
             return orm_instance
-        return None
+        except SQLAlchemyError as exc:
+            msg: str = "Error while getting data from database"
+            raise DatabaseUnavailableError(msg) from exc
 
     async def get_all(self, filters: dict[str, Any] | None = None) -> list[T]:
-        stmt = select(self._orm_model).order_by(self._orm_model.id)
+        await self._ensure_session()
+        try:
+            stmt = select(self._orm_model).order_by(self._orm_model.id)
 
-        if filters:
             criterias = []
 
             for attr, value in filters.items():
@@ -58,18 +68,26 @@ class SqlAlchemyRepository(AbstractRepository[T, S]):
             if criterias:
                 stmt = stmt.where(and_(*criterias))
 
-        result = await self._session.execute(stmt)
-        orm_instances = result.scalars().all()
-        return orm_instances
+            result = await self._session.execute(stmt)
+            orm_instances = result.scalars().all()
+            return orm_instances
+        except SQLAlchemyError as exc:
+            msg: str = "Error while getting data from database"
+            raise DatabaseUnavailableError(msg) from exc
 
     async def add(self, model: S) -> T:
-        orm_instance = self._orm_model(**model.model_dump())
-        self._session.add(orm_instance)
-        await self._session.flush()
-        await self._session.refresh(orm_instance)
-        await self._session.commit()
-        return orm_instance
-
+        await self._ensure_session()
+        try:
+            orm_instance = self._orm_model(**model.model_dump())
+            self._session.add(orm_instance)
+            await self._session.flush()
+            await self._session.refresh(orm_instance)
+            await self._session.commit()
+            return orm_instance
+        except SQLAlchemyError as exc:
+            await self._session.rollback()
+            msg: str = "Error adding record to database"
+            raise DatabaseUnavailableError(msg) from exc
 
 class RollAbstractReposity(SqlAlchemyRepository[RollORM, RollRequestCreate], abc.ABC):
     @abc.abstractmethod
@@ -85,38 +103,49 @@ class RollAbstractReposity(SqlAlchemyRepository[RollORM, RollRequestCreate], abc
 
 class RollReposity(RollAbstractReposity):
     async def delete(self, model_id: int) -> RollORM | None:
-        orm_instance = await self.get_by_id(model_id)
-        if orm_instance:
-            if orm_instance.removed_at:
-                return None
-            orm_instance.removed_at = datetime.datetime.now()
-            self._session.add(orm_instance)
-            await self._session.commit()
-            return orm_instance
-        return None
+        await self._ensure_session()
+        try:
+            orm_instance = await self.get_by_id(model_id)
+            if orm_instance:
+                if orm_instance.removed_at:
+                    return None
+                orm_instance.removed_at = datetime.datetime.now()
+                self._session.add(orm_instance)
+                await self._session.commit()
+                return orm_instance
+            return None
+        except SQLAlchemyError as exc:
+            await self._session.rollback()
+            msg: str = "Error deleting record"
+            raise DatabaseUnavailableError(msg) from exc
 
     async def get_rolls_in_stock_during_period(
         self, date_range: dict[str, list[datetime.datetime]]
     ) -> list[RollORM] | None:
-        stmt = select(self._orm_model)
+        await self._ensure_session()
+        try:
+            stmt = select(self._orm_model)
 
-        start_date, end_date = date_range["date_range"]
+            start_date, end_date = date_range["date_range"]
 
-        stmt = stmt.filter(
-            or_(
-                and_(self._orm_model.created_at >= start_date, self._orm_model.created_at <= end_date),
-                and_(
-                    self._orm_model.removed_at is not None,
-                    self._orm_model.removed_at >= start_date,
-                    self._orm_model.removed_at <= end_date,
-                ),
-                and_(
-                    self._orm_model.created_at < start_date,
-                    or_(self._orm_model.removed_at is None, self._orm_model.removed_at > end_date),
-                ),
+            stmt = stmt.filter(
+                or_(
+                    and_(self._orm_model.created_at >= start_date, self._orm_model.created_at <= end_date),
+                    and_(
+                        self._orm_model.removed_at is not None,
+                        self._orm_model.removed_at >= start_date,
+                        self._orm_model.removed_at <= end_date,
+                    ),
+                    and_(
+                        self._orm_model.created_at < start_date,
+                        or_(self._orm_model.removed_at is None, self._orm_model.removed_at > end_date),
+                    ),
+                )
             )
-        )
 
-        result = await self._session.execute(stmt)
-        rolls = result.scalars().all()
-        return rolls if rolls else None
+            result = await self._session.execute(stmt)
+            rolls = result.scalars().all()
+            return rolls if rolls else None
+        except SQLAlchemyError as exc:
+            msg: str = "Error retrieving data for the period"
+            raise DatabaseUnavailableError(msg) from exc

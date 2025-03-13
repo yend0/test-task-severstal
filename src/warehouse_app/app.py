@@ -5,6 +5,8 @@ from fastapi import FastAPI
 
 from warehouse_app.api import api_router
 from warehouse_app.core.config import Config
+from warehouse_app.core.exc import DatabaseUnavailableError
+from warehouse_app.core.handlers import database_unavailable_exception_handler, generic_exception_handler
 
 
 @contextlib.asynccontextmanager
@@ -38,5 +40,8 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(router=api_router)
+
+    app.add_exception_handler(DatabaseUnavailableError, database_unavailable_exception_handler)
+    app.add_exception_handler(Exception, generic_exception_handler)
 
     return app
